@@ -23,6 +23,7 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", readinessHandler)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.adminMetricsHandler)
 	mux.HandleFunc("POST /admin/reset", apiCfg.resetHandler)
+	mux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
 
 	srv := http.Server{
 		Addr:    ":" + port,
@@ -31,6 +32,7 @@ func main() {
 
 	log.Printf("Serving files from %s on port: %s.\n", filepathRoot, port)
 	log.Fatal(srv.ListenAndServe())
+
 }
 
 type apiConfig struct {

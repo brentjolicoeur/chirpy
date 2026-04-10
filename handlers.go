@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 )
 
@@ -23,4 +25,35 @@ func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.fileserverHits.Store(0)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Hits reset to 0"))
+}
+
+func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	type requestBody struct {
+		Body string `json:"body"`
+	}
+	type responseBody struct {
+		Error string `json:"error"`
+		Valid bool   `json:"valid"`
+	}
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondWithError(w, 500, "couldn't read request", err)
+		return
+	}
+	params := requestBody{}
+	err = json.Unmarshal(data, &params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal response", err)
+		return
+	}
+	const maxChirpLength = 140
+	if len(params.Body) > maxChirpLength {
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long", nil)
+		return
+	}
+	respondWithJSON(w, http.StatusOK, responseBody{
+		Valid: true,
+	})
 }
