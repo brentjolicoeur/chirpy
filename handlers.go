@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 func readinessHandler(w http.ResponseWriter, r *http.Request) {
@@ -34,8 +35,8 @@ func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
 		Body string `json:"body"`
 	}
 	type responseBody struct {
-		Error string `json:"error"`
-		Valid bool   `json:"valid"`
+		Error       string `json:"error"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -53,7 +54,30 @@ func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "Chirp is too long", nil)
 		return
 	}
+	cleanedBody := cleanChirpText(params.Body)
+
 	respondWithJSON(w, http.StatusOK, responseBody{
-		Valid: true,
+		CleanedBody: cleanedBody,
 	})
+}
+
+func cleanChirpText(chirp string) string {
+	words := strings.Split(chirp, " ")
+	for i, word := range words {
+		switch strings.ToLower(word) {
+		case "kerfuffle":
+			words[i] = "****"
+			continue
+		case "sharbert":
+			words[i] = "****"
+			continue
+		case "fornax":
+			words[i] = "****"
+			continue
+		default:
+			continue
+		}
+	}
+
+	return strings.Join(words, " ")
 }
