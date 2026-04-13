@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,16 +18,24 @@ func main() {
 	const filepathRoot = "."
 	const port = "8080"
 	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL must be set.")
+	}
+	platform := os.Getenv("PLATFORM")
+	if platform == "" {
+		log.Fatal("PLATFORM must be set.")
+	}
 
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		fmt.Printf("Error connecting to database: %v\n", err)
+		log.Fatalf("Error opening database: %s", err)
 	}
 	dbQueries := database.New(db)
 
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
 		db:             dbQueries,
+		platform:       platform,
 	}
 
 	fSrv := http.FileServer(http.Dir(filepathRoot))
@@ -43,7 +50,7 @@ func main() {
 	mux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
 	mux.HandleFunc("POST /api/users", apiCfg.createUserHandler)
 
-	srv := http.Server{
+	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
 	}
@@ -56,4 +63,5 @@ func main() {
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
+	platform       string
 }
