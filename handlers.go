@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 )
 
 func readinessHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +39,7 @@ func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
-		respondWithError(w, 500, "couldn't read request", err)
+		respondWithError(w, http.StatusInternalServerError, "couldn't read request", err)
 		return
 	}
 	params := requestBody{}
@@ -61,23 +60,28 @@ func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func cleanChirpText(chirp string) string {
-	words := strings.Split(chirp, " ")
-	for i, word := range words {
-		switch strings.ToLower(word) {
-		case "kerfuffle":
-			words[i] = "****"
-			continue
-		case "sharbert":
-			words[i] = "****"
-			continue
-		case "fornax":
-			words[i] = "****"
-			continue
-		default:
-			continue
-		}
+func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	type requestBody struct {
+		Email string `json:"email"`
 	}
 
-	return strings.Join(words, " ")
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't read request", err)
+		return
+	}
+	params := requestBody{}
+	err = json.Unmarshal(data, &params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal response", err)
+		return
+	}
+	user, err := cfg.db.CreateUser(r.Context(), params.Email)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't create user", err)
+		return
+	}
+	respondWithJSON(w, http.StatusCreated, user)
 }
