@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/brentjolicoeur/chirpy/internal/auth"
+	"github.com/brentjolicoeur/chirpy/internal/database"
 )
 
 func readinessHandler(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +46,8 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 	defer r.Body.Close()
 
 	type requestBody struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	data, err := io.ReadAll(r.Body)
@@ -57,11 +61,21 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal response", err)
 		return
 	}
-	user, err := cfg.db.CreateUser(r.Context(), params.Email)
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't hash password", err)
+		return
+	}
+	userParams := database.CreateUserParams{
+		Email:          params.Email,
+		HashedPassword: hashedPassword,
+	}
+	user, err := cfg.db.CreateUser(r.Context(), userParams)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "couldn't create user", err)
 		return
 	}
+
 	userResponse := User{
 		ID:        user.ID,
 		CreatedAt: user.CreatedAt,

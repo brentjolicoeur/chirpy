@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"strings"
 	"time"
 
@@ -41,4 +42,14 @@ func cleanChirpText(chirp string) string {
 	}
 
 	return strings.Join(words, " ")
+}
+
+func convertToNullString(s string) sql.NullString {
+	if len(s) == 0 {
+		return sql.NullString{}
+	}
+	return sql.NullString{
+		String: s,
+		Valid:  true,
+	}
 }
