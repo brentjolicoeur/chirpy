@@ -73,13 +73,13 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "couldn't retrieve user", err)
+		respondWithError(w, http.StatusUnauthorized, "incorrect email or password", err)
 		return
 	}
 	match, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
 
 	if err != nil || !match {
-		respondWithError(w, http.StatusUnauthorized, "password doesn't match", err)
+		respondWithError(w, http.StatusUnauthorized, "incorrect email or password", err)
 		return
 	}
 
