@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/brentjolicoeur/chirpy/internal/auth"
 	"github.com/brentjolicoeur/chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -12,9 +13,14 @@ import (
 func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "couldn't retrieve token", err)
+		return
+	}
+
 	type requestBody struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
 	}
 
 	data, err := io.ReadAll(r.Body)
@@ -28,6 +34,12 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal response", err)
 		return
 	}
+	verifiedID, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid token", err)
+		return
+	}
+
 	const maxChirpLength = 140
 	if len(params.Body) > maxChirpLength {
 		respondWithError(w, http.StatusBadRequest, "Chirp is too long", nil)
@@ -37,12 +49,13 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 
 	chirpParams := database.CreateChirpParams{
 		Body:   cleanedBody,
-		UserID: params.UserID,
+		UserID: verifiedID,
 	}
 
 	chirp, err := cfg.db.CreateChirp(r.Context(), chirpParams)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error creating chirp", err)
+		return
 	}
 
 	userResponse := Chirp{

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/brentjolicoeur/chirpy/internal/auth"
 	"github.com/brentjolicoeur/chirpy/internal/database"
@@ -56,9 +57,12 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	type requestBody struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email            string `json:"email"`
+		Password         string `json:"password"`
+		ExpiresInSeconds int    `json:"expires_in_seconds"`
 	}
+	var expirationTime int
+	const defaultExpirationTimeInSeconds = 3600
 
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -71,6 +75,11 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal response", err)
 		return
 	}
+	if params.ExpiresInSeconds == 0 || params.ExpiresInSeconds > 3600 {
+		expirationTime = defaultExpirationTimeInSeconds
+	} else {
+		expirationTime = params.ExpiresInSeconds
+	}
 	user, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "incorrect email or password", err)
@@ -82,12 +91,17 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusUnauthorized, "incorrect email or password", err)
 		return
 	}
+	token, err := auth.MakeJWT(user.ID, cfg.secret, time.Duration(expirationTime)*time.Second)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error creating token", err)
+	}
 
 	userResponse := User{
 		ID:        user.ID,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
+		Token:     token,
 	}
 	respondWithJSON(w, http.StatusOK, userResponse)
 }
