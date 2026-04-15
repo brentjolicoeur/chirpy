@@ -27,7 +27,7 @@ func (cfg *apiConfig) apiRefreshHandler(w http.ResponseWriter, r *http.Request) 
 		respondWithError(w, http.StatusInternalServerError, "error retrieving user", err)
 		return
 	}
-	accessToken, err := auth.MakeJWT(user.ID, cfg.secret, time.Hour)
+	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error creating JWT", err)
 		return

@@ -18,6 +18,11 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, http.StatusUnauthorized, "couldn't retrieve token", err)
 		return
 	}
+	verifiedID, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid token", err)
+		return
+	}
 
 	type requestBody struct {
 		Body string `json:"body"`
@@ -32,11 +37,6 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 	err = json.Unmarshal(data, &params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal response", err)
-		return
-	}
-	verifiedID, err := auth.ValidateJWT(token, cfg.secret)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "invalid token", err)
 		return
 	}
 
@@ -111,4 +111,8 @@ func (cfg *apiConfig) getSingleChirpHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	respondWithJSON(w, http.StatusOK, chirpResponse)
+}
+
+func (cfg *apiConfig) deleteChirpHandler(w http.ResponseWriter, r *http.Request) {
+
 }

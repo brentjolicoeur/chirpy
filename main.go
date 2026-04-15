@@ -40,7 +40,7 @@ func main() {
 		fileserverHits: atomic.Int32{},
 		db:             dbQueries,
 		platform:       platform,
-		secret:         jwtSecret,
+		jwtSecret:      jwtSecret,
 	}
 
 	fSrv := http.FileServer(http.Dir(filepathRoot))
@@ -49,16 +49,22 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(fileserverHandler))
+
 	mux.HandleFunc("GET /api/healthz", readinessHandler)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.adminMetricsHandler)
+	mux.HandleFunc("GET /api/chirps", apiCfg.getChirpsHandler)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.getSingleChirpHandler)
+
 	mux.HandleFunc("POST /admin/reset", apiCfg.resetHandler)
 	mux.HandleFunc("POST /api/chirps", apiCfg.createChirpHandler)
 	mux.HandleFunc("POST /api/users", apiCfg.createUserHandler)
-	mux.HandleFunc("GET /api/chirps", apiCfg.getChirpsHandler)
-	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.getSingleChirpHandler)
 	mux.HandleFunc("POST /api/login", apiCfg.userLoginHandler)
 	mux.HandleFunc("POST /api/refresh", apiCfg.apiRefreshHandler)
 	mux.HandleFunc("POST /api/revoke", apiCfg.apiRevokeHandler)
+
+	mux.HandleFunc("PUT /api/users", apiCfg.updateUserHandler)
+
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.deleteChirpHandler)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -74,5 +80,5 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
 	platform       string
-	secret         string
+	jwtSecret      string
 }
