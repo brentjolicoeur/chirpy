@@ -42,5 +42,15 @@ func (cfg *apiConfig) apiRefreshHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (cfg *apiConfig) apiRevokeHandler(w http.ResponseWriter, r *http.Request) {
-
+	bearerToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "missing token in header", err)
+		return
+	}
+	err = cfg.db.RevokeRefreshToken(r.Context(), bearerToken)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error revoking tokken", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
