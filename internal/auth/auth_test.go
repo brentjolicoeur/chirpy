@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/hex"
 	"net/http"
 	"testing"
 	"time"
@@ -209,4 +210,50 @@ func TestGetBearerToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMakeRefreshToken(t *testing.T) {
+	t.Run("returns a non-empty string", func(t *testing.T) {
+		token := MakeRefreshToken()
+		if token == "" {
+			t.Error("expected non-empty token, got empty string")
+		}
+	})
+
+	t.Run("returns correct hex length for 32 bytes", func(t *testing.T) {
+		token := MakeRefreshToken()
+		// 32 bytes -> 64 hex characters
+		if len(token) != 64 {
+			t.Errorf("expected token length 64, got %d", len(token))
+		}
+	})
+
+	t.Run("returns valid hex string", func(t *testing.T) {
+		token := MakeRefreshToken()
+		if _, err := hex.DecodeString(token); err != nil {
+			t.Errorf("token is not valid hex: %v", err)
+		}
+	})
+
+	t.Run("returns unique tokens on each call", func(t *testing.T) {
+		seen := make(map[string]bool)
+		for i := 0; i < 100; i++ {
+			token := MakeRefreshToken()
+			if seen[token] {
+				t.Errorf("duplicate token generated on iteration %d: %s", i, token)
+			}
+			seen[token] = true
+		}
+	})
+
+	t.Run("tokens contain only lowercase hex characters", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			token := MakeRefreshToken()
+			for _, c := range token {
+				if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+					t.Errorf("token contains non-lowercase-hex character %q: %s", c, token)
+				}
+			}
+		}
+	})
 }

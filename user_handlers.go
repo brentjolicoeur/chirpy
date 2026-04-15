@@ -57,12 +57,9 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	type requestBody struct {
-		Email            string `json:"email"`
-		Password         string `json:"password"`
-		ExpiresInSeconds int    `json:"expires_in_seconds"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
-	var expirationTime int
-	const defaultExpirationTimeInSeconds = 3600
 
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -75,33 +72,41 @@ func (cfg *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal response", err)
 		return
 	}
-	if params.ExpiresInSeconds == 0 || params.ExpiresInSeconds > 3600 {
-		expirationTime = defaultExpirationTimeInSeconds
-	} else {
-		expirationTime = params.ExpiresInSeconds
-	}
 	user, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "incorrect email or password", err)
 		return
 	}
 	match, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
-
 	if err != nil || !match {
 		respondWithError(w, http.StatusUnauthorized, "incorrect email or password", err)
 		return
 	}
-	token, err := auth.MakeJWT(user.ID, cfg.secret, time.Duration(expirationTime)*time.Second)
+	token, err := auth.MakeJWT(user.ID, cfg.secret, time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error creating token", err)
+		return
+	}
+	refreshString := auth.MakeRefreshToken()
+
+	refreshParams := database.CreateRefreshTokenParams{
+		Token:     refreshString,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(time.Hour * 24 * 60),
+	}
+	refreshToken, err := cfg.db.CreateRefreshToken(r.Context(), refreshParams)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error creating refresh token", err)
+		return
 	}
 
 	userResponse := User{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
-		Token:     token,
+		ID:           user.ID,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		Email:        user.Email,
+		Token:        token,
+		RefreshToken: refreshToken.Token,
 	}
 	respondWithJSON(w, http.StatusOK, userResponse)
 }
