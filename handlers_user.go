@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/brentjolicoeur/chirpy/internal/auth"
@@ -170,6 +171,16 @@ func (cfg *apiConfig) updateUserHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (cfg *apiConfig) upgradeUserHandler(w http.ResponseWriter, r *http.Request) {
+	apiKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "couldn't retrieve apiKey", err)
+		return
+	}
+	if apiKey != os.Getenv("POLKA_KEY") {
+		respondWithError(w, http.StatusUnauthorized, "Not Authorized", err)
+		return
+	}
+
 	defer r.Body.Close()
 
 	type requestBody struct {
